@@ -119,10 +119,25 @@ func NewPool(queueSize, workerSize int) *Pool {
 }
 
 func (p *Pool) ExecTask(job Job) {
+	if len(job.JobName) == 0 {
+		panic(fmt.Errorf("JobName为空"))
+	}
+	if job.JobFunc == nil {
+		panic(fmt.Errorf("JobFunc为空"))
+	}
 	p.jobChan <- job
 }
 
 func (p *Pool) ExecTaskFuture(job JobFuture) {
+	if len(job.JobName) == 0 {
+		panic(fmt.Errorf("JobName为空"))
+	}
+	if job.JobFunc == nil {
+		panic(fmt.Errorf("JobFunc为空"))
+	}
+	if job.Future == nil {
+		panic(fmt.Errorf("Future为空"))
+	}
 	p.jobFutureChan <- job
 }
 
