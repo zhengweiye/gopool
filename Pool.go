@@ -12,20 +12,41 @@ type Job struct {
 	JobParam  map[string]any
 }
 
+type JobFuture struct {
+	JobName   string
+	JobFunc   JobFuncFuture
+	WaitGroup *sync.WaitGroup
+	JobParam  map[string]any
+	Future    chan Future
+}
+
+type Future struct {
+	Error  error
+	Result any
+}
+
 type JobWrap struct {
 	job         Job
 	workerIndex int
 }
 
+type JobFutureWrap struct {
+	job         JobFuture
+	workerIndex int
+}
+
 type JobFunc func(workerId int, param map[string]any) (err error)
+type JobFuncFuture func(workerId int, param map[string]any, future chan Future)
 
 type Worker struct {
-	jobWrapChan chan JobWrap
+	jobWrapChan       chan JobWrap
+	jobFutureWrapChan chan JobFutureWrap
 }
 
 func newWorker() *Worker {
 	workerObj := &Worker{
-		jobWrapChan: make(chan JobWrap, 1000),
+		jobWrapChan:       make(chan JobWrap, 1000),
+		jobFutureWrapChan: make(chan JobFutureWrap, 1000),
 	}
 	go workerObj.run()
 	return workerObj
@@ -36,6 +57,9 @@ func (w *Worker) run() {
 		select {
 		case jobWrap := <-w.jobWrapChan:
 			w.handle(jobWrap)
+
+		case jobFutureWrap := <-w.jobFutureWrapChan:
+			w.handleFuture(jobFutureWrap)
 		}
 	}
 }
@@ -43,7 +67,7 @@ func (w *Worker) run() {
 func (w *Worker) handle(jobWrap JobWrap) {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("Pool执行异常: ", " jobName=", jobWrap.job.JobName, ", 参数=", jobWrap.job.JobParam, ", 异常=", err)
+			fmt.Println("Pool.handle()执行异常: ", " jobName=", jobWrap.job.JobName, ", 参数=", jobWrap.job.JobParam, ", 异常=", err)
 		}
 	}()
 	if jobWrap.job.WaitGroup != nil {
@@ -52,12 +76,25 @@ func (w *Worker) handle(jobWrap JobWrap) {
 	jobWrap.job.JobFunc(jobWrap.workerIndex, jobWrap.job.JobParam)
 }
 
+func (w *Worker) handleFuture(jobFutureWrap JobFutureWrap) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("Pool.handleFuture()执行异常: ", " jobName=", jobFutureWrap.job.JobName, ", 参数=", jobFutureWrap.job.JobParam, ", 异常=", err)
+		}
+	}()
+	if jobFutureWrap.job.WaitGroup != nil {
+		defer jobFutureWrap.job.WaitGroup.Done()
+	}
+	jobFutureWrap.job.JobFunc(jobFutureWrap.workerIndex, jobFutureWrap.job.JobParam, jobFutureWrap.job.Future)
+}
+
 type Pool struct {
-	jobChan     chan Job
-	workerSize  int
-	workers     []*Worker
-	workerIndex int
-	lock        sync.Mutex
+	jobChan       chan Job
+	jobFutureChan chan JobFuture
+	workerSize    int
+	workers       []*Worker
+	workerIndex   int
+	lock          sync.Mutex
 }
 
 var poolObj *Pool
@@ -66,10 +103,11 @@ var poolOnce sync.Once
 func NewPool(queueSize, workerSize int) *Pool {
 	poolOnce.Do(func() {
 		poolObj = &Pool{
-			jobChan:     make(chan Job, queueSize),
-			workerSize:  workerSize,
-			workers:     make([]*Worker, workerSize),
-			workerIndex: 0,
+			jobChan:       make(chan Job, queueSize),
+			jobFutureChan: make(chan JobFuture, queueSize),
+			workerSize:    workerSize,
+			workers:       make([]*Worker, workerSize),
+			workerIndex:   0,
 		}
 		for i := 0; i < workerSize; i++ {
 			// #issue: worker不能才有once
@@ -84,12 +122,19 @@ func (p *Pool) ExecTask(job Job) {
 	p.jobChan <- job
 }
 
+func (p *Pool) ExecTaskFuture(job JobFuture) {
+	p.jobFutureChan <- job
+}
+
 func (p *Pool) run() {
 	for {
 		select {
 		case job := <-p.jobChan:
 			index := p.getIndex()
 			p.workers[index].jobWrapChan <- JobWrap{job: job, workerIndex: index}
+		case jobFuture := <-p.jobFutureChan:
+			index := p.getIndex()
+			p.workers[index].jobFutureWrapChan <- JobFutureWrap{job: jobFuture, workerIndex: index}
 		}
 	}
 }
