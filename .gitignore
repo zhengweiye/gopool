@@ -1,0 +1,19 @@
+### IDEA ###
+.idea/*
+*.iml
+*/*.iml
+*/target/*
+target/
+*.log
+logs/
+out/
+
+# 编译文件 #
+###################
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*/node_modules/*
+*/docs/*
