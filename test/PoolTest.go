@@ -31,9 +31,9 @@ func main1() {
  */
 func main() {
 	beginTime := time.Now()
-	pool := gopool.NewPool(10000, 1000)
+	pool := gopool.NewPool(1000, 1000)
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100000; i++ {
 		wg.Add(1)
 		pool.ExecTask(gopool.Job{
 			WaitGroup: &wg,

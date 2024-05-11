@@ -20,26 +20,21 @@ type JobWrap struct {
 type JobFunc func(workerId int, param map[string]any) (err error)
 
 type Worker struct {
-	jobChan chan JobWrap
+	jobWrapChan chan JobWrap
 }
 
-var workerObj *Worker
-var workerOnce sync.Once
-
 func newWorker() *Worker {
-	workerOnce.Do(func() {
-		workerObj = &Worker{
-			jobChan: make(chan JobWrap, 1000),
-		}
-		go workerObj.run()
-	})
+	workerObj := &Worker{
+		jobWrapChan: make(chan JobWrap, 1000),
+	}
+	go workerObj.run()
 	return workerObj
 }
 
 func (w *Worker) run() {
 	for {
 		select {
-		case jobWrap := <-w.jobChan:
+		case jobWrap := <-w.jobWrapChan:
 			w.handle(jobWrap)
 		}
 	}
@@ -77,6 +72,7 @@ func NewPool(queueSize, workerSize int) *Pool {
 			workerIndex: 0,
 		}
 		for i := 0; i < workerSize; i++ {
+			// #issue: worker不能才有once
 			poolObj.workers[i] = newWorker()
 		}
 		go poolObj.run()
@@ -93,7 +89,7 @@ func (p *Pool) run() {
 		select {
 		case job := <-p.jobChan:
 			index := p.getIndex()
-			p.workers[index].jobChan <- JobWrap{job: job, workerIndex: index}
+			p.workers[index].jobWrapChan <- JobWrap{job: job, workerIndex: index}
 		}
 	}
 }
