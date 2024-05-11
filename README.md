@@ -1,3 +1,6 @@
+> 线程池使用示例:
+
+```go
 func main() {
 	beginTime := time.Now()
 	pool := gopool.NewPool(10000, 1000)
@@ -24,3 +27,4 @@ func myJob(workerId int, param map[string]any) (err error) {
 	fmt.Println("执行成功: ", "线程", workerId, param)
 	return nil
 }
+```
