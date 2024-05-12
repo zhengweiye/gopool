@@ -85,7 +85,11 @@ func (w *Worker) handleFuture(jobFutureWrap JobFutureWrap) {
 	if jobFutureWrap.job.WaitGroup != nil {
 		defer jobFutureWrap.job.WaitGroup.Done()
 	}
+	// 关闭
+	defer close(jobFutureWrap.job.Future)
+	// 执行
 	jobFutureWrap.job.JobFunc(jobFutureWrap.workerIndex, jobFutureWrap.job.JobParam, jobFutureWrap.job.Future)
+
 }
 
 type Pool struct {

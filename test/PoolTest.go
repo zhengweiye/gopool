@@ -92,8 +92,10 @@ func myJobFuture(workerId int, param map[string]any, future chan gopool.Future) 
 				Result: result,
 			}
 		}
+		// 在Pool里面关闭
+		//close(future)
 	}()
 
-	//result = 2*param["num"].(int)
-	result = 100 / param["num"].(int)
+	result = 2 * param["num"].(int)
+	//result = 100 / param["num"].(int)
 }
