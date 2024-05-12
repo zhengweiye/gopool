@@ -41,12 +41,14 @@ type JobFuncFuture func(workerId int, param map[string]any, future chan Future)
 type Worker struct {
 	jobWrapChan       chan JobWrap
 	jobFutureWrapChan chan JobFutureWrap
+	quitChan          chan bool
 }
 
 func newWorker() *Worker {
 	workerObj := &Worker{
 		jobWrapChan:       make(chan JobWrap, 1000),
 		jobFutureWrapChan: make(chan JobFutureWrap, 1000),
+		quitChan:          make(chan bool, 1),
 	}
 	go workerObj.run()
 	return workerObj
@@ -60,6 +62,9 @@ func (w *Worker) run() {
 
 		case jobFutureWrap := <-w.jobFutureWrapChan:
 			w.handleFuture(jobFutureWrap)
+		case <-w.quitChan:
+			fmt.Println("worker quitChan select is quit.")
+			return
 		}
 	}
 }
@@ -98,6 +103,7 @@ type Pool struct {
 	workerSize    int
 	workers       []*Worker
 	workerIndex   int
+	quitChan      chan bool
 	lock          sync.Mutex
 }
 
@@ -112,6 +118,7 @@ func NewPool(queueSize, workerSize int) *Pool {
 			workerSize:    workerSize,
 			workers:       make([]*Worker, workerSize),
 			workerIndex:   0,
+			quitChan:      make(chan bool, 1),
 		}
 		for i := 0; i < workerSize; i++ {
 			// #issue: worker不能才有once
@@ -120,6 +127,17 @@ func NewPool(queueSize, workerSize int) *Pool {
 		go poolObj.run()
 	})
 	return poolObj
+}
+
+func (p *Pool) Shutdown() {
+	for _, worker := range p.workers {
+		close(worker.quitChan)
+		close(worker.jobWrapChan)
+		close(worker.jobFutureWrapChan)
+	}
+	close(p.quitChan)
+	close(p.jobChan)
+	close(p.jobFutureChan)
 }
 
 func (p *Pool) ExecTask(job Job) {
@@ -154,6 +172,9 @@ func (p *Pool) run() {
 		case jobFuture := <-p.jobFutureChan:
 			index := p.getIndex()
 			p.workers[index].jobFutureWrapChan <- JobFutureWrap{job: jobFuture, workerIndex: index}
+		case <-p.quitChan:
+			fmt.Println("pool quitChan select is quit.")
+			return
 		}
 	}
 }
