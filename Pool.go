@@ -52,6 +52,8 @@ func newWorker(wg *sync.WaitGroup) *Worker {
 		quitChan:          make(chan bool, 1),
 		wg:                wg,
 	}
+
+	wg.Add(1)
 	go workerObj.run()
 
 	return workerObj
@@ -66,6 +68,7 @@ func (w *Worker) run() {
 
 		case jobFutureWrap := <-w.jobFutureWrapChan:
 			w.handleFuture(jobFutureWrap)
+
 		case <-w.quitChan:
 			fmt.Println("worker quitChan select is quit.")
 			return
@@ -98,7 +101,6 @@ func (w *Worker) handleFuture(jobFutureWrap JobFutureWrap) {
 	defer close(jobFutureWrap.job.Future)
 	// 执行
 	jobFutureWrap.job.JobFunc(jobFutureWrap.workerIndex, jobFutureWrap.job.JobParam, jobFutureWrap.job.Future)
-
 }
 
 type Pool struct {
@@ -128,7 +130,6 @@ func NewPool(queueSize, workerSize int) *Pool {
 		}
 
 		for i := 0; i < workerSize; i++ {
-			poolObj.wg.Add(1)
 			// #issue: worker不能才有once
 			poolObj.workers[i] = newWorker(poolObj.wg)
 		}
