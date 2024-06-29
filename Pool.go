@@ -42,19 +42,23 @@ type Worker struct {
 	jobWrapChan       chan JobWrap
 	jobFutureWrapChan chan JobFutureWrap
 	quitChan          chan bool
+	wg                *sync.WaitGroup
 }
 
-func newWorker() *Worker {
+func newWorker(wg *sync.WaitGroup) *Worker {
 	workerObj := &Worker{
 		jobWrapChan:       make(chan JobWrap, 1000),
 		jobFutureWrapChan: make(chan JobFutureWrap, 1000),
 		quitChan:          make(chan bool, 1),
+		wg:                wg,
 	}
 	go workerObj.run()
+
 	return workerObj
 }
 
 func (w *Worker) run() {
+	defer w.wg.Done()
 	for {
 		select {
 		case jobWrap := <-w.jobWrapChan:
@@ -105,6 +109,7 @@ type Pool struct {
 	workerIndex   int
 	quitChan      chan bool
 	lock          sync.Mutex
+	wg            *sync.WaitGroup
 }
 
 var poolObj *Pool
@@ -119,11 +124,16 @@ func NewPool(queueSize, workerSize int) *Pool {
 			workers:       make([]*Worker, workerSize),
 			workerIndex:   0,
 			quitChan:      make(chan bool, 1),
+			wg:            &sync.WaitGroup{},
 		}
+
 		for i := 0; i < workerSize; i++ {
+			poolObj.wg.Add(1)
 			// #issue: worker不能才有once
-			poolObj.workers[i] = newWorker()
+			poolObj.workers[i] = newWorker(poolObj.wg)
 		}
+
+		poolObj.wg.Add(1)
 		go poolObj.run()
 	})
 	return poolObj
@@ -138,6 +148,9 @@ func (p *Pool) Shutdown() {
 	close(p.quitChan)
 	close(p.jobChan)
 	close(p.jobFutureChan)
+
+	// 等待所有协程执行完成
+	p.wg.Wait()
 }
 
 func (p *Pool) ExecTask(job Job) {
@@ -164,6 +177,8 @@ func (p *Pool) ExecTaskFuture(job JobFuture) {
 }
 
 func (p *Pool) run() {
+	defer p.wg.Done()
+
 	for {
 		select {
 		case job := <-p.jobChan:

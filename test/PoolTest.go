@@ -29,11 +29,11 @@ func main1() {
 /**
  * 线程池执行
  */
-func main2() {
+func main() {
 	beginTime := time.Now()
 	pool := gopool.NewPool(1000, 1000)
 	wg := sync.WaitGroup{}
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		pool.ExecTask(gopool.Job{
 			WaitGroup: &wg,
@@ -53,10 +53,11 @@ func main2() {
 func myJob(workerId int, param map[string]any) (err error) {
 	time.Sleep(1 * time.Second)
 	fmt.Println("执行成功: ", "线程", workerId, param)
-	return nil
+
+	return
 }
 
-func main() {
+func main2() {
 	beginTime := time.Now()
 	pool := gopool.NewPool(1000, 1000)
 	wg := sync.WaitGroup{}
@@ -66,7 +67,7 @@ func main() {
 		pool.ExecTaskFuture(gopool.JobFuture{
 			WaitGroup: &wg,
 			JobName:   fmt.Sprintf("作业名称%d", i),
-			JobFunc:   myJobFuture,
+			JobFunc:   nil, //myJobFuture,
 			JobParam: map[string]any{
 				"num": i,
 			},
