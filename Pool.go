@@ -86,7 +86,7 @@ func (w *Worker) handle(jobWrap JobWrap) {
 	jobWrap.wg.Add(1)
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("Pool.handle()执行异常: ", " jobName=", jobWrap.job.JobName, ", 参数=", jobWrap.job.JobParam, ", 异常=", err)
+			fmt.Printf(">>> [协程池] 名称[%s] 参数[%v] 异常：[%v] \n", jobWrap.job.JobName, jobWrap.job.JobParam, err)
 		}
 		jobWrap.wg.Done()
 	}()
@@ -102,7 +102,7 @@ func (w *Worker) handleFuture(jobFutureWrap JobFutureWrap) {
 	jobFutureWrap.wg.Add(1)
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("Pool.handleFuture()执行异常: ", " jobName=", jobFutureWrap.job.JobName, ", 参数=", jobFutureWrap.job.JobParam, ", 异常=", err)
+			fmt.Printf(">>> [协程池] 名称[%s] 参数[%v] 异常：[%v] \n", jobFutureWrap.job.JobName, jobFutureWrap.job.JobParam, err)
 		}
 		jobFutureWrap.wg.Done()
 	}()
@@ -165,13 +165,13 @@ func NewPool(queueSize, workerSize int, ctx context.Context) *Pool {
 }
 
 func (p *Pool) Shutdown() {
-	//TODO 测试优雅停止、ws、pool是否共用测试、工作流优化
+	//TODO 测试优雅停止、ws、pool是否共用测试、工作流优化、定时器集成context实现
 
 	// 停止接受任务
 	p.isShutdown = true
 
 	// 等待任务执行完成
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>通知Worker关闭, 进行中....<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>[协程池] 通知Worker关闭, 进行中....<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	p.waitGroup.Wait()
 
 	// 关闭Worker的chan
@@ -183,7 +183,7 @@ func (p *Pool) Shutdown() {
 	//close(p.jobChan)
 	//close(p.jobFutureChan)
 	close(p.quitChan)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>通知Worker关闭, 已结束....<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>[协程池] 通知Worker关闭, 已结束....<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 }
 
 func (p *Pool) ExecTask(job Job) {
@@ -196,7 +196,7 @@ func (p *Pool) ExecTask(job Job) {
 	if !p.isShutdown {
 		p.jobChan <- job
 	} else {
-		fmt.Println(">>>[无返回值]协程池已经关闭,无法再接受新的任务....")
+		fmt.Println(">>>[协程池] 协程池已经关闭,无法再接受新的任务....")
 	}
 }
 
@@ -213,7 +213,7 @@ func (p *Pool) ExecTaskFuture(job JobFuture) {
 	if !p.isShutdown {
 		p.jobFutureChan <- job
 	} else {
-		fmt.Println(">>>[有返回值]协程池已经关闭,无法再接受新的任务....")
+		fmt.Println(">>>[协程池] 协程池已经关闭,无法再接受新的任务....")
 	}
 }
 
@@ -236,11 +236,11 @@ func (p *Pool) run() {
 			}
 
 		case <-p.quitChan:
-			fmt.Println(">>>pool quitChan select is quit.")
+			fmt.Println(">>> [协程池] 退出协程池监听...")
 			return
 
 		case <-p.ctx.Done():
-			fmt.Println(">>>pool context Done.")
+			fmt.Println(">>> [协程池] 监听到Context取消信号...")
 			if !p.isShutdown {
 				p.Shutdown()
 			}

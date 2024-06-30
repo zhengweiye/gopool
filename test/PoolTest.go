@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/zhengweiye/gopool"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -29,7 +30,7 @@ func main() {
 	}
 	//wg.Wait()
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	cancel()
 	//pool.Shutdown()
 
@@ -40,7 +41,9 @@ func main() {
 
 func myJob(workerId int, jobName string, param map[string]any) (err error) {
 	//fmt.Println("before: jobName=", "线程Id=", workerId, jobName, ", 参数=", param)
-	time.Sleep(1 * time.Second)
+	rand.Seed(time.Now().UnixNano())
+	t := rand.Intn(10)
+	time.Sleep(time.Duration(int64(time.Second) * int64(t)))
 	fmt.Println("after: jobName=", "线程Id=", workerId, jobName, ", 参数=", param)
 	return
 }
