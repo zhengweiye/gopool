@@ -130,18 +130,17 @@ type Pool struct {
 	lock          sync.Mutex
 	ctx           context.Context
 	isShutdown    bool
-	waitGroup     sync.WaitGroup
+	waitGroup     *sync.WaitGroup
 }
 
 var poolObj *Pool
 var poolOnce sync.Once
 
-func NewPool(queueSize, workerSize int, ctx context.Context) *Pool {
+func NewPool(queueSize, workerSize int, ctx context.Context, waitGroup *sync.WaitGroup) *Pool {
 	poolOnce.Do(func() {
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		wg := sync.WaitGroup{}
 		poolObj = &Pool{
 			jobChan:       make(chan Job, queueSize),
 			jobFutureChan: make(chan JobFuture, queueSize),
@@ -151,7 +150,7 @@ func NewPool(queueSize, workerSize int, ctx context.Context) *Pool {
 			quitChan:      make(chan bool, 1),
 			ctx:           ctx,
 			isShutdown:    false,
-			waitGroup:     wg,
+			waitGroup:     waitGroup,
 		}
 
 		for i := 0; i < workerSize; i++ {
@@ -165,8 +164,6 @@ func NewPool(queueSize, workerSize int, ctx context.Context) *Pool {
 }
 
 func (p *Pool) Shutdown() {
-	//TODO 测试优雅停止、ws、pool是否共用测试、工作流优化、定时器集成context实现
-
 	// 停止接受任务
 	p.isShutdown = true
 
@@ -225,14 +222,14 @@ func (p *Pool) run() {
 
 			c := p.workers[index].jobWrapChan
 			if c != nil {
-				c <- JobWrap{job: job, workerIndex: index, wg: &p.waitGroup}
+				c <- JobWrap{job: job, workerIndex: index, wg: p.waitGroup}
 			}
 
 		case jobFuture := <-p.jobFutureChan:
 			index := p.getIndex()
 			c := p.workers[index].jobFutureWrapChan
 			if c != nil {
-				c <- JobFutureWrap{job: jobFuture, workerIndex: index, wg: &p.waitGroup}
+				c <- JobFutureWrap{job: jobFuture, workerIndex: index, wg: p.waitGroup}
 			}
 
 		case <-p.quitChan:
