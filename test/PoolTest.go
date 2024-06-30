@@ -16,10 +16,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	waitGroup := &sync.WaitGroup{}
 	pool := gopool.NewPool(10, 5, ctx, waitGroup)
-	//wg := sync.WaitGroup{}
 	for i := 0; i < 5; i++ {
-		//.Add(1)
-		//defer wg.Done()
 		pool.ExecTask(gopool.Job{
 			JobName: fmt.Sprintf("作业名称%d", i),
 			JobFunc: myJob,
@@ -29,15 +26,13 @@ func main() {
 			},
 		})
 	}
-	//wg.Wait()
 
 	time.Sleep(5 * time.Second)
 	cancel()
 	//pool.Shutdown()
 
-	for {
-
-	}
+	waitGroup.Wait()
+	fmt.Println("结束.....")
 }
 
 func myJob(workerId int, jobName string, param map[string]any) (err error) {

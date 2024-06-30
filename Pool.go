@@ -121,16 +121,17 @@ func (w *Worker) handleFuture(jobFutureWrap JobFutureWrap) {
 }
 
 type Pool struct {
-	jobChan       chan Job
-	jobFutureChan chan JobFuture
-	workerSize    int
-	workers       []*Worker
-	workerIndex   int
-	quitChan      chan bool
-	lock          sync.Mutex
-	ctx           context.Context
-	isShutdown    bool
-	waitGroup     *sync.WaitGroup
+	jobChan         chan Job
+	jobFutureChan   chan JobFuture
+	workerSize      int
+	workers         []*Worker
+	workerIndex     int
+	quitChan        chan bool
+	lock            sync.Mutex
+	ctx             context.Context
+	isShutdown      bool
+	innerWaitGroup  *sync.WaitGroup
+	globalWaitGroup *sync.WaitGroup
 }
 
 var poolObj *Pool
@@ -138,19 +139,19 @@ var poolOnce sync.Once
 
 func NewPool(queueSize, workerSize int, ctx context.Context, waitGroup *sync.WaitGroup) *Pool {
 	poolOnce.Do(func() {
-		if ctx == nil {
-			ctx = context.Background()
-		}
+		waitGroup.Add(1)
+		innerWaitGroup := &sync.WaitGroup{}
 		poolObj = &Pool{
-			jobChan:       make(chan Job, queueSize),
-			jobFutureChan: make(chan JobFuture, queueSize),
-			workerSize:    workerSize,
-			workers:       make([]*Worker, workerSize),
-			workerIndex:   0,
-			quitChan:      make(chan bool, 1),
-			ctx:           ctx,
-			isShutdown:    false,
-			waitGroup:     waitGroup,
+			jobChan:         make(chan Job, queueSize),
+			jobFutureChan:   make(chan JobFuture, queueSize),
+			workerSize:      workerSize,
+			workers:         make([]*Worker, workerSize),
+			workerIndex:     0,
+			quitChan:        make(chan bool, 1),
+			ctx:             ctx,
+			isShutdown:      false,
+			innerWaitGroup:  innerWaitGroup,
+			globalWaitGroup: waitGroup,
 		}
 
 		for i := 0; i < workerSize; i++ {
@@ -169,7 +170,7 @@ func (p *Pool) Shutdown() {
 
 	// 等待任务执行完成
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>[协程池] 通知Worker关闭, 进行中....<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-	p.waitGroup.Wait()
+	p.innerWaitGroup.Wait()
 
 	// 关闭Worker的chan
 	for _, worker := range p.workers {
@@ -180,6 +181,10 @@ func (p *Pool) Shutdown() {
 	//close(p.jobChan)
 	//close(p.jobFutureChan)
 	close(p.quitChan)
+
+	// 通知业务系统的http服务监听
+	p.globalWaitGroup.Done()
+
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>[协程池] 通知Worker关闭, 已结束....<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 }
 
@@ -222,14 +227,14 @@ func (p *Pool) run() {
 
 			c := p.workers[index].jobWrapChan
 			if c != nil {
-				c <- JobWrap{job: job, workerIndex: index, wg: p.waitGroup}
+				c <- JobWrap{job: job, workerIndex: index, wg: p.innerWaitGroup}
 			}
 
 		case jobFuture := <-p.jobFutureChan:
 			index := p.getIndex()
 			c := p.workers[index].jobFutureWrapChan
 			if c != nil {
-				c <- JobFutureWrap{job: jobFuture, workerIndex: index, wg: p.waitGroup}
+				c <- JobFutureWrap{job: jobFuture, workerIndex: index, wg: p.innerWaitGroup}
 			}
 
 		case <-p.quitChan:
