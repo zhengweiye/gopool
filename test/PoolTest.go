@@ -15,7 +15,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	waitGroup := &sync.WaitGroup{}
-	pool := gopool.NewPool(10, 5, ctx, waitGroup)
+	pool := gopool.NewPool(10, 10, 5, ctx, waitGroup)
 	for i := 0; i < 5; i++ {
 		pool.ExecTask(gopool.Job{
 			JobName: fmt.Sprintf("作业名称%d", i),
@@ -46,7 +46,7 @@ func myJob(workerId int, jobName string, param map[string]any) (err error) {
 
 func main2() {
 	beginTime := time.Now()
-	pool := gopool.NewPool(1000, 1000, nil, nil)
+	pool := gopool.NewPool(10, 1000, 1000, nil, nil)
 	wg := sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
