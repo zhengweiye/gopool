@@ -49,8 +49,8 @@ type Worker struct {
 func newWorker(index, queueSize int) *Worker {
 	workerObj := &Worker{
 		index:             index,
-		jobWrapChan:       make(chan JobWrap, 1000),
-		jobFutureWrapChan: make(chan JobFutureWrap, 1000),
+		jobWrapChan:       make(chan JobWrap, queueSize),
+		jobFutureWrapChan: make(chan JobFutureWrap, queueSize),
 		quitChan:          make(chan bool, 1),
 	}
 
