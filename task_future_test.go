@@ -33,16 +33,18 @@ func Test_Task_Future(t *testing.T) {
 	}
 
 	//TODO 并行执行
+	var resultList []Future
 	for _, future := range futureList {
 		result := <-future
-		//TODO 感觉这里抛异常不合适，影响其它chan
+		resultList = append(resultList, result)
+		//TODO 内部已经关闭了
+		//close(future)
+	}
+	for _, result := range resultList {
 		if result.Error != nil {
 			panic(result.Error)
 		}
 		fmt.Printf("result=%v\n", result.Result)
-
-		//TODO 内部已经关闭了
-		//close(future)
 	}
 }
 
