@@ -8,21 +8,22 @@ import (
 	"time"
 )
 
-func Test_Task_Future(t *testing.T) {
+func Test_Task_Future2(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 	workerPool := NewPool(100, 20, 100, ctx, wg)
 	var futureList []chan Future
-	for i := 0; i < 5; i++ {
+	globalParam := "zwy"
+	for i := 0; i < 3; i++ {
 		future := make(chan Future)
-		workerPool.ExecTaskFuture(JobFuture{
+		workerPool.ExecTaskFuture2(JobFuture2{
 			JobName: "测试",
-			JobFunc: myTaskFuture,
+			JobFunc: myTaskFuture2,
 			JobParam: map[string]any{
 				"id": i,
 			},
 			Future: future,
-		})
+		}, &globalParam)
 		futureList = append(futureList, future)
 		//TODO 串行执行
 		/*result := <-future
@@ -46,9 +47,10 @@ func Test_Task_Future(t *testing.T) {
 		}
 		fmt.Printf("result=%v\n", result.Result)
 	}
+	fmt.Println("globalParam=", globalParam)
 }
 
-func myTaskFuture(workerId int, jobName string, param map[string]any, future chan Future) {
+func myTaskFuture2(workerId int, jobName string, param map[string]any, future chan Future, globalParam any) {
 	var name string
 	defer func() {
 		if err := recover(); err != nil {
@@ -70,4 +72,8 @@ func myTaskFuture(workerId int, jobName string, param map[string]any, future cha
 	time.Sleep(10 * time.Second)
 	fmt.Println("id=", id, ", 结束执行")
 	name = fmt.Sprintf("%d", id+10)
+
+	// 修改全局变量的值
+	globalValue := globalParam.(*string)
+	*globalValue = "yf"
 }

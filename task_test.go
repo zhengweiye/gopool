@@ -17,7 +17,7 @@ func Test_Task(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		workerPool.ExecTask(Job{
 			JobName: fmt.Sprintf("作业名称%d", i),
-			JobFunc: myJob,
+			JobFunc: myTask,
 			JobParam: map[string]any{
 				"name":    fmt.Sprintf("姓名%d", i),
 				"address": fmt.Sprintf("地址%d", i),
@@ -33,7 +33,7 @@ func Test_Task(t *testing.T) {
 	fmt.Println("结束.....")
 }
 
-func myJob(workerId int, jobName string, param map[string]any) (err error) {
+func myTask(workerId int, jobName string, param map[string]any) (err error) {
 	//fmt.Println("before: jobName=", "线程Id=", workerId, jobName, ", 参数=", param)
 	rand.Seed(time.Now().UnixNano())
 	t := rand.Intn(10)
